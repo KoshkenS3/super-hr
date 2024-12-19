@@ -1,6 +1,6 @@
 import { DataSource, Repository } from 'typeorm'
 import { Employee } from '../entities/Employee.entity'
-import { addDays, format, parse } from 'date-fns'
+import { addDays, format, parse, isSameDay } from 'date-fns'
 
 export class EmployeeService {
   private employeeRepository: Repository<Employee>
@@ -24,15 +24,15 @@ export class EmployeeService {
   }
 
   async getEmployeesWithDeadlines(): Promise<Employee[]> {
-    const today = format(new Date(), 'yyyy-MM-dd')
     const employees = await this.employeeRepository.find()
+    const today = new Date()
 
     return employees.filter((employee) => {
-      const startDate = parse(employee.startDate, 'dd.MM.yyyy', new Date())
-      const adaptationEndDate = format(addDays(startDate, employee.adaptationDays), 'yyyy-MM-dd')
-      const probationEndDate = format(addDays(startDate, employee.probationDays), 'yyyy-MM-dd')
+      const startDateObj = parse(employee.startDate, 'dd.MM.yyyy', new Date())
+      const adaptationEndDate = addDays(startDateObj, employee.adaptationDays)
+      const probationEndDate = addDays(startDateObj, employee.probationDays)
 
-      return adaptationEndDate === today || probationEndDate === today
+      return isSameDay(today, adaptationEndDate) || isSameDay(today, probationEndDate)
     })
   }
 }

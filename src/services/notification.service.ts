@@ -2,6 +2,7 @@ import { Context, Telegraf } from 'telegraf'
 import { Employee } from '../entities/Employee.entity'
 import { EmployeeService } from './employee.service'
 import { WizardContext } from 'src/types/context'
+import { parse, addDays, isSameDay } from 'date-fns'
 
 export class NotificationService {
   constructor(
@@ -12,18 +13,21 @@ export class NotificationService {
   async checkAndSendNotifications(): Promise<void> {
     try {
       const employees = await this.employeeService.getEmployeesWithDeadlines()
+      const today = new Date()
 
       for (const employee of employees) {
-        const startDate = new Date(employee.startDate)
-        const today = new Date()
-        const daysPassed = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+        const startDateObj = parse(employee.startDate, 'dd.MM.yyyy', new Date())
+        const adaptationEndDate = addDays(startDateObj, employee.adaptationDays)
+        const probationEndDate = addDays(startDateObj, employee.probationDays)
 
-        if (daysPassed === employee.adaptationDays) {
+        if (isSameDay(today, adaptationEndDate)) {
           await this.sendNotification(employee, 'адаптация')
+          console.log(`Отправлено уведомление об окончании адаптации для ${employee.fullName}`)
         }
 
-        if (daysPassed === employee.probationDays) {
+        if (isSameDay(today, probationEndDate)) {
           await this.sendNotification(employee, 'испытательный срок')
+          console.log(`Отправлено уведомление об окончании испытательного срока для ${employee.fullName}`)
         }
       }
     } catch (error) {
@@ -32,7 +36,12 @@ export class NotificationService {
   }
 
   private async sendNotification(employee: Employee, period: string): Promise<void> {
-    const message = `Сегодня у сотрудника ${employee.fullName} заканчивается ${period}.`
-    await this.bot.telegram.sendMessage(employee.userId, message)
+    const message = `❗️ Внимание! Сегодня у сотрудника ${employee.fullName} заканчивается ${period}.`
+    try {
+      await this.bot.telegram.sendMessage(employee.userId, message)
+      console.log(`Уведомление успешно отправлено для ${employee.fullName} (${period})`)
+    } catch (error) {
+      console.error(`Ошибка при отправке уведомления для ${employee.fullName}:`, error)
+    }
   }
 }

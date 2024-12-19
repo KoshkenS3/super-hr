@@ -57,7 +57,8 @@ function formatEmployeesList(employees: Employee[]): string {
         const probationEndDate = format(addDays(startDateObj, emp.probationDays), 'd MMMM yyyy', { locale: ru })
 
         return `
-👤 Сотрудник ${index + 1}:
+👤 
+
 ФИО: ${emp.fullName}
 Дата начала: ${startDate}
 Конец адаптации: ${adaptationEndDate}
