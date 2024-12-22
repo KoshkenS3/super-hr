@@ -71,7 +71,7 @@ const init = async () => {
 
     // Планировщик уведомлений
     cron.schedule(
-      '* 9 * * *', // В 15:28 каждый день
+      '0 9 * * *',
       async () => {
         console.log('Запуск проверки уведомлений:', new Date().toLocaleString('ru-RU'))
         await notificationService.checkAndSendNotifications()
