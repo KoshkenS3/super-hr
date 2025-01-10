@@ -1,9 +1,12 @@
-import { Scenes, Telegraf, session } from 'telegraf'
-import * as dotenv from 'dotenv'
-import { format } from 'date-fns'
-import { ru } from 'date-fns/locale'
-import { DataSource } from 'typeorm'
-import * as cron from 'node-cron'
+// Импортируем необходимые библиотеки
+import { Scenes, Telegraf, session } from 'telegraf' // Telegraf - основная библиотека для создания Telegram ботов
+import * as dotenv from 'dotenv' // Библиотека для работы с переменными окружения
+import { format } from 'date-fns' // Библиотека для работы с датами
+import { ru } from 'date-fns/locale' // Русская локализация для дат
+import { DataSource } from 'typeorm' // Библиотека для работы с базой данных
+import * as cron from 'node-cron' // Библиотека для создания расписаний задач
+
+// Импортируем наши сервисы и компоненты
 import { EmployeeService } from './services/employee.service'
 import { NotificationService } from './services/notification.service'
 import { addEmployeeScene } from './scenes/addEmployee'
@@ -12,66 +15,76 @@ import { showEmployeesScene } from './scenes/showEmployees'
 import { BotContext, WizardContext } from './types/context'
 import { Employee } from './entities/Employee.entity'
 
-// Загрузка переменных окружения
+// Загружаем переменные окружения из файла .env
 dotenv.config()
 
+// Проверяем наличие токена бота
 if (!process.env.BOT_TOKEN) {
   throw new Error('BOT_TOKEN не указан в переменных окружения')
 }
 
-// Инициализация бота с типом контекста
+// Создаем экземпляр бота с указанным токеном
 const bot = new Telegraf<WizardContext>(process.env.BOT_TOKEN)
 
-// Подключение к базе данных
+// Настраиваем подключение к базе данных SQLite
 const AppDataSource = new DataSource({
-  type: 'sqlite',
-  database: 'employees.sqlite',
-  entities: [Employee],
-  synchronize: true,
-  logging: false,
+  type: 'sqlite', // Тип базы данных
+  database: 'employees.sqlite', // Имя файла базы данных
+  entities: [Employee], // Список сущностей (таблиц)
+  synchronize: true, // Автоматическая синхронизация схемы базы данных
+  logging: false, // Отключаем логирование SQL запросов
 })
 
+// Функция инициализации бота
 const init = async () => {
   try {
-    // Инициализация базы данных
+    // Подключаемся к базе данных
     await AppDataSource.initialize()
     console.log('База данных успешно инициализирована')
 
+    // Создаем экземпляры сервисов
     const employeeService = new EmployeeService(AppDataSource)
     const notificationService = new NotificationService(bot, employeeService)
 
-    // Используем только WizardContext
+    // Создаем сцены для диалогов с пользователем
     const stage = new Scenes.Stage<WizardContext>([addEmployeeScene, showEmployeesScene])
 
+    // Настраиваем middleware для бота
     bot.use(
       session({
+        // Включаем сессии для хранения данных пользователя
         defaultSession: () => ({
           __scenes: {},
           employeeData: {},
         }),
       }),
     )
+
+    // Добавляем сервис работы с сотрудниками в контекст бота
     bot.use((ctx, next) => {
       ctx.employeeService = employeeService
       return next()
     })
+
+    // Подключаем обработчик сцен
     bot.use(stage.middleware())
 
-    // Команды
+    // Регистрируем команду /start
     bot.command('start', async (ctx) => {
       await ctx.reply('🌸 Добро пожаловать! Выберите действие:', mainKeyboard)
     })
 
+    // Регистрируем остальные команды
     bot.command('add_employee', (ctx) => ctx.scene.enter('addEmployee'))
     bot.command('show_employees', (ctx) => ctx.scene.enter('showEmployees'))
 
-    // Обработка текстовых команд с клавиатуры
+    // Обрабатываем нажатия на кнопки клавиатуры
     bot.hears('👤 Добавить сотрудника', (ctx) => ctx.scene.enter('addEmployee'))
     bot.hears('📋 Показать сотрудников', (ctx) => ctx.scene.enter('showEmployees'))
 
-    // Планировщик уведомлений
+    // Настраиваем ежедневные уведомления в 09:00 по московскому времени
     cron.schedule(
-      '0 9 * * *',
+      '0 9 * * *', // Крон-выражение: минуты(0) часы(9) дни(*) месяцы(*) дни_недели(*)
       async () => {
         console.log('Запуск проверки уведомлений:', new Date().toLocaleString('ru-RU'))
         await notificationService.checkAndSendNotifications()
@@ -81,17 +94,18 @@ const init = async () => {
       },
     )
 
-    // Запуск бота
+    // Запускаем бота
     await bot.launch()
     console.log('Бот успешно запущен')
   } catch (error) {
     console.error('Ошибка при инициализации:', error)
-    process.exit(1)
+    process.exit(1) // Завершаем процесс с ошибкой
   }
 }
 
+// Запускаем инициализацию
 init()
 
-// Graceful shutdown
+// Корректное завершение работы бота при остановке процесса
 process.once('SIGINT', () => bot.stop('SIGINT'))
 process.once('SIGTERM', () => bot.stop('SIGTERM'))
