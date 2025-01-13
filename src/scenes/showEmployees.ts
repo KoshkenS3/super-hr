@@ -54,37 +54,22 @@ showEmployeesScene.action(/^page_(\d+)$/, async (ctx) => {
   }
 })
 
-// Функция форматирования списка сотрудников в текстовое сообщение
+// Функция форматирования списка сотрудников
 function formatEmployeesList(employees: Employee[]): string {
-  return employees
-    .map((emp, index) => {
-      try {
-        // Преобразуем строковую дату начала работы в объект Date
-        const startDateObj = parse(emp.startDate, 'dd.MM.yyyy', new Date())
+  let message = '📋 Список сотрудников:\n\n'
 
-        // Форматируем все даты в русском формате
-        const startDate = format(startDateObj, 'd MMMM yyyy', { locale: ru })
-        const adaptationEndDate = format(addDays(startDateObj, emp.adaptationDays), 'd MMMM yyyy', { locale: ru })
-        const probationEndDate = format(addDays(startDateObj, emp.probationDays), 'd MMMM yyyy', { locale: ru })
+  employees.forEach((employee) => {
+    const startDateObj = parse(employee.startDate, 'dd.MM.yyyy', new Date())
+    const adaptationEndDate = addDays(startDateObj, employee.adaptationDays)
+    const probationEndDate = addDays(startDateObj, employee.probationDays)
 
-        // Формируем карточку сотрудника с информацией
-        return `
-👤 
+    message += `👤 ${employee.fullName} (ID: ${employee.id})\n`
+    message += `📅 Дата начала: ${employee.startDate}\n`
+    message += `⏳ Дни адаптации: ${employee.adaptationDays} (до ${format(adaptationEndDate, 'dd.MM.yyyy', { locale: ru })})\n`
+    message += `🎯 Испытательный срок: ${employee.probationDays} (до ${format(probationEndDate, 'dd.MM.yyyy', {
+      locale: ru,
+    })})\n\n`
+  })
 
-ФИО: ${emp.fullName}
-Дата начала: ${startDate}
-Конец адаптации: ${adaptationEndDate}
-Конец испытательного срока: ${probationEndDate}
-───────────────`
-      } catch (error) {
-        // В случае ошибки форматирования дат выводим базовую информацию
-        console.error(`Ошибка форматирования данных сотрудника ${emp.fullName}:`, error)
-        return `
-👤 Сотрудник ${index + 1}:
-ФИО: ${emp.fullName}
-Ошибка отображения дат
-───────────────`
-      }
-    })
-    .join('\n') // Объединяем все карточки в одно сообщение
+  return message
 }

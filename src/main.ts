@@ -5,6 +5,7 @@ import { format } from 'date-fns' // Библиотека для работы с
 import { ru } from 'date-fns/locale' // Русская локализация для дат
 import { DataSource } from 'typeorm' // Библиотека для работы с базой данных
 import * as cron from 'node-cron' // Библиотека для создания расписаний задач
+import { ReplyKeyboardMarkup } from 'telegraf/types'
 
 // Импортируем наши сервисы и компоненты
 import { EmployeeService } from './services/employee.service'
@@ -12,7 +13,8 @@ import { NotificationService } from './services/notification.service'
 import { addEmployeeScene } from './scenes/addEmployee'
 import { mainKeyboard } from './keyboards/main'
 import { showEmployeesScene } from './scenes/showEmployees'
-import { BotContext, WizardContext } from './types/context'
+import { updateEmployeeDaysScene } from './scenes/updateEmployeeDays'
+import { MyContext } from './types/context'
 import { Employee } from './entities/Employee.entity'
 
 // Загружаем переменные окружения из файла .env
@@ -24,7 +26,7 @@ if (!process.env.BOT_TOKEN) {
 }
 
 // Создаем экземпляр бота с указанным токеном
-const bot = new Telegraf<WizardContext>(process.env.BOT_TOKEN)
+const bot = new Telegraf<MyContext>(process.env.BOT_TOKEN)
 
 // Настраиваем подключение к базе данных SQLite
 const AppDataSource = new DataSource({
@@ -47,14 +49,16 @@ const init = async () => {
     const notificationService = new NotificationService(bot, employeeService)
 
     // Создаем сцены для диалогов с пользователем
-    const stage = new Scenes.Stage<WizardContext>([addEmployeeScene, showEmployeesScene])
+    const stage = new Scenes.Stage<MyContext>([addEmployeeScene, showEmployeesScene, updateEmployeeDaysScene])
 
     // Настраиваем middleware для бота
     bot.use(
       session({
-        // Включаем сессии для хранения данных пользователя
         defaultSession: () => ({
-          __scenes: {},
+          __scenes: {
+            cursor: 0,
+            step: 0,
+          },
           employeeData: {},
         }),
       }),
@@ -69,9 +73,17 @@ const init = async () => {
     // Подключаем обработчик сцен
     bot.use(stage.middleware())
 
+    // Глобальная команда отмены
+    bot.command('cancel', async (ctx) => {
+      await ctx.scene.leave()
+      await ctx.reply('Операция отменена', { reply_markup: mainKeyboard.reply_markup })
+    })
+
     // Регистрируем команду /start
     bot.command('start', async (ctx) => {
-      await ctx.reply('🌸 Добро пожаловать! Выберите действие:', mainKeyboard)
+      await ctx.reply('🌸 Добро пожаловать! Выберите действие:', {
+        reply_markup: mainKeyboard.reply_markup,
+      })
     })
 
     // Регистрируем остальные команды
@@ -81,6 +93,7 @@ const init = async () => {
     // Обрабатываем нажатия на кнопки клавиатуры
     bot.hears('👤 Добавить сотрудника', (ctx) => ctx.scene.enter('addEmployee'))
     bot.hears('📋 Показать сотрудников', (ctx) => ctx.scene.enter('showEmployees'))
+    bot.hears('⏰ Изменить сроки', (ctx) => ctx.scene.enter('updateEmployeeDays'))
 
     // Настраиваем ежедневные уведомления в 09:00 по московскому времени
     cron.schedule(

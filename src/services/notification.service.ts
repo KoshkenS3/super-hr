@@ -1,13 +1,13 @@
 import { Context, Telegraf } from 'telegraf'
 import { Employee } from '../entities/Employee.entity'
 import { EmployeeService } from './employee.service'
-import { WizardContext } from 'src/types/context'
+import { MyContext } from '../types/context'
 import { parse, addDays, isSameDay } from 'date-fns'
 
 // Сервис для отправки уведомлений о дедлайнах сотрудников
 export class NotificationService {
   constructor(
-    private bot: Telegraf<WizardContext>, // Экземпляр бота для отправки сообщений
+    private bot: Telegraf<MyContext>, // Экземпляр бота для отправки сообщений
     private employeeService: EmployeeService, // Сервис для работы с данными сотрудников
   ) {}
 

@@ -43,4 +43,23 @@ export class EmployeeService {
       return isSameDay(today, adaptationEndDate) || isSameDay(today, probationEndDate)
     })
   }
+
+  // Обновление сроков сотрудника
+  async updateEmployeeDays(employeeId: number, adaptationDays?: number, probationDays?: number): Promise<Employee | null> {
+    const employee = await this.employeeRepository.findOne({ where: { id: employeeId } })
+
+    if (!employee) {
+      return null
+    }
+
+    if (typeof adaptationDays === 'number') {
+      employee.adaptationDays = adaptationDays
+    }
+
+    if (typeof probationDays === 'number') {
+      employee.probationDays = probationDays
+    }
+
+    return await this.employeeRepository.save(employee)
+  }
 }
